@@ -158,28 +158,7 @@ npm run preview
 
 ## GitHub Safety
 
-Do not upload:
 
-- `.env`
-- `node_modules`
-- build output like `dist`
-- logs
-- secrets or production keys
-
-Recommended root `.gitignore`:
-
-```gitignore
-backend/node_modules/
-frontend/node_modules/
-backend/.env
-frontend/.env
-*.env
-*.env.*
-frontend/dist/
-backend/dist/
-*.log
-.DS_Store
-Thumbs.db
 ```
 
 ## Deployment Notes
