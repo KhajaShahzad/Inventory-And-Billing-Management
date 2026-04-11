@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const normalizeRole = (role) => (role === 'user' ? 'staff' : role);
 
 // Helper to send token response
 const sendTokenResponse = (user, statusCode, res) => {
@@ -12,7 +13,7 @@ const sendTokenResponse = (user, statusCode, res) => {
       id: user._id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: normalizeRole(user.role)
     }
   });
 };
@@ -22,14 +23,14 @@ const sendTokenResponse = (user, statusCode, res) => {
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
     // Create user
     const user = await User.create({
       name,
       email,
       password,
-      role
+      role: 'staff'
     });
 
     sendTokenResponse(user, 201, res);
@@ -82,7 +83,88 @@ exports.getMe = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: user
+      data: {
+        ...user.toObject(),
+        role: normalizeRole(user.role),
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Get all users for role management
+// @route   GET /api/auth/users
+// @access  Private/Admin
+exports.getUsers = async (req, res) => {
+  try {
+    const users = await User.find({}, 'name email role createdAt').sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      data: users.map((user) => ({
+        ...user.toObject(),
+        role: normalizeRole(user.role),
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Update a user's role
+// @route   PUT /api/auth/users/:id/role
+// @access  Private/Admin
+exports.updateUserRole = async (req, res) => {
+  try {
+    const requestedRole = normalizeRole(req.body?.role || 'staff');
+
+    if (!['staff', 'admin'].includes(requestedRole)) {
+      return res.status(400).json({ success: false, error: 'Invalid role supplied' });
+    }
+
+    const targetUser = await User.findById(req.params.id);
+
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const currentRole = normalizeRole(targetUser.role);
+
+    if (currentRole === requestedRole) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          ...targetUser.toObject(),
+          role: currentRole,
+        },
+      });
+    }
+
+    if (String(targetUser._id) === String(req.user.id) && requestedRole !== 'admin') {
+      return res.status(400).json({ success: false, error: 'You cannot remove your own admin access' });
+    }
+
+    if (currentRole === 'admin' && requestedRole === 'staff') {
+      const adminCount = await User.countDocuments({ role: { $in: ['admin'] } });
+      if (adminCount <= 1) {
+        return res.status(400).json({
+          success: false,
+          error: 'At least one admin account must remain in the workspace',
+        });
+      }
+    }
+
+    targetUser.role = requestedRole;
+    await targetUser.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...targetUser.toObject(),
+        role: normalizeRole(targetUser.role),
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
