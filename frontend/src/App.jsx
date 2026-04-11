@@ -11,12 +11,17 @@ import Billing from './pages/Billing';
 import Expenses from './pages/Expenses';
 import Optimization from './pages/Optimization';
 import MobileScanner from './pages/MobileScanner';
+import TeamAccess from './pages/TeamAccess';
+import Reports from './pages/Reports';
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useContext(AuthContext);
 
   if (loading) return <div className="loading-screen">Loading...</div>;
   if (!user) return <Navigate to="/login" />;
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to={user.role === 'staff' ? '/billing' : '/'} replace />;
+  }
 
   return children;
 };
@@ -36,11 +41,13 @@ function App() {
 
         {/* PROTECTED ROUTES */}
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route index element={<Dashboard />} />
-          <Route path="inventory" element={<Inventory />} />
-          <Route path="billing" element={<Billing />} />
-          <Route path="expenses" element={<Expenses />} />
-          <Route path="optimization" element={<Optimization />} />
+          <Route index element={<ProtectedRoute allowedRoles={['admin']}><Dashboard /></ProtectedRoute>} />
+          <Route path="inventory" element={<ProtectedRoute allowedRoles={['admin']}><Inventory /></ProtectedRoute>} />
+          <Route path="billing" element={<ProtectedRoute allowedRoles={['admin', 'staff']}><Billing /></ProtectedRoute>} />
+          <Route path="expenses" element={<ProtectedRoute allowedRoles={['admin']}><Expenses /></ProtectedRoute>} />
+          <Route path="optimization" element={<ProtectedRoute allowedRoles={['admin']}><Optimization /></ProtectedRoute>} />
+          <Route path="team-access" element={<ProtectedRoute allowedRoles={['admin']}><TeamAccess /></ProtectedRoute>} />
+          <Route path="reports" element={<ProtectedRoute allowedRoles={['admin']}><Reports /></ProtectedRoute>} />
         </Route>
 
       </Routes>

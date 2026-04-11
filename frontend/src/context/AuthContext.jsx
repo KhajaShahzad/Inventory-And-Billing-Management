@@ -26,12 +26,14 @@ export const AuthProvider = ({ children }) => {
     checkUserLoggedIn();
   }, []);
 
-  const login = async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
+  const login = async (email, password, expectedRole) => {
+    const body = { email, password };
+    if (expectedRole) body.expectedRole = expectedRole;
+    const res = await api.post('/auth/login', body);
     if (res.data.success) {
       localStorage.setItem('token', res.data.token);
       setUser(res.data.user);
-      return { success: true };
+      return { success: true, user: res.data.user };
     }
   };
 

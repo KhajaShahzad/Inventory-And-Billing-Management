@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   {
     name: 'Overview',
     path: '/',
+    roles: ['admin'],
     icon: (
       <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
         <rect x="3" y="3" width="7" height="7" />
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   {
     name: 'Inventory',
     path: '/inventory',
+    roles: ['admin'],
     icon: (
       <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
@@ -30,6 +32,7 @@ const NAV_ITEMS = [
   {
     name: 'Billing',
     path: '/billing',
+    roles: ['admin', 'staff'],
     icon: (
       <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
         <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5Z" />
@@ -40,6 +43,7 @@ const NAV_ITEMS = [
   {
     name: 'Expenses',
     path: '/expenses',
+    roles: ['admin'],
     icon: (
       <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
         <path d="M12 1v22" />
@@ -50,12 +54,40 @@ const NAV_ITEMS = [
   {
     name: 'Insights',
     path: '/optimization',
+    roles: ['admin'],
     icon: (
       <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
         <path d="M4 19h16" />
         <path d="M7 15V9" />
         <path d="M12 15V5" />
         <path d="M17 15v-3" />
+      </svg>
+    ),
+  },
+  {
+    name: 'Reports',
+    path: '/reports',
+    roles: ['admin'],
+    icon: (
+      <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+        <path d="M16 13H8" />
+        <path d="M16 17H8" />
+        <path d="M10 9H8" />
+      </svg>
+    ),
+  },
+  {
+    name: 'Team Access',
+    path: '/team-access',
+    roles: ['admin'],
+    icon: (
+      <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
     ),
   },
@@ -74,6 +106,10 @@ const PAGE_META = {
     title: 'Billing Console',
     subtitle: 'Run checkout faster with live phone scanning, manual entry, and a clearer payment workflow.',
   },
+  '/staff-billing': {
+    title: 'Billing Console',
+    subtitle: 'Scan products, build bills, and complete checkout quickly from the counter.',
+  },
   '/expenses': {
     title: 'Expense Ledger',
     subtitle: 'Capture costs, watch category mix, and keep margin leakage visible before it compounds.',
@@ -81,6 +117,14 @@ const PAGE_META = {
   '/optimization': {
     title: 'Profit Insights',
     subtitle: 'See what drives contribution, what stalls, and where your next stock decisions should go.',
+  },
+  '/reports': {
+    title: 'Reports',
+    subtitle: 'Review date-filtered sales and expense activity, then export clean admin-ready report files.',
+  },
+  '/team-access': {
+    title: 'Team Access',
+    subtitle: 'Promote staff members, keep admin access controlled, and make roles explicit for the whole workspace.',
   },
 };
 
@@ -119,6 +163,12 @@ const Layout = () => {
   }, [socket]);
 
   useEffect(() => {
+    if (user?.role === 'staff' && location.pathname === '/') {
+      navigate('/billing', { replace: true });
+    }
+  }, [location.pathname, navigate, user?.role]);
+
+  useEffect(() => {
     const handleOnline = async () => {
       const bills = await getOfflineBills();
       if (!bills.length) {
@@ -153,12 +203,22 @@ const Layout = () => {
   }, []);
 
   const pageMeta = useMemo(() => {
+    if (user?.role === 'staff') {
+      return PAGE_META['/staff-billing'];
+    }
     if (location.pathname.startsWith('/inventory')) return PAGE_META['/inventory'];
     if (location.pathname.startsWith('/billing')) return PAGE_META['/billing'];
     if (location.pathname.startsWith('/expenses')) return PAGE_META['/expenses'];
     if (location.pathname.startsWith('/optimization')) return PAGE_META['/optimization'];
+    if (location.pathname.startsWith('/reports')) return PAGE_META['/reports'];
+    if (location.pathname.startsWith('/team-access')) return PAGE_META['/team-access'];
     return PAGE_META['/'];
-  }, [location.pathname]);
+  }, [location.pathname, user?.role]);
+
+  const visibleNavItems = useMemo(
+    () => NAV_ITEMS.filter((item) => item.roles.includes(user?.role || 'staff')),
+    [user?.role],
+  );
 
   return (
     <div className="app-shell">
@@ -173,7 +233,7 @@ const Layout = () => {
 
         <div className="sidebar-section-label">Workspace</div>
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive = item.path === '/'
               ? location.pathname === '/'
               : location.pathname.startsWith(item.path);
@@ -194,7 +254,7 @@ const Layout = () => {
             <div className="user-avatar">{user?.name?.charAt(0)?.toUpperCase() || 'U'}</div>
             <div>
               <div className="user-name">{user?.name || 'User'}</div>
-              <div className="user-role">{user?.role || 'manager'}</div>
+              <div className="user-role">{user?.role || 'staff'}</div>
             </div>
           </div>
           <button className="btn btn-ghost" onClick={() => { logout(); navigate('/login'); }}>
