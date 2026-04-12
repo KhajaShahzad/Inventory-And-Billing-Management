@@ -47,7 +47,7 @@ exports.register = async (req, res) => {
 // @access  Public
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, expectedRole } = req.body;
 
     // Validate email & password
     if (!email || !password) {
@@ -66,6 +66,18 @@ exports.login = async (req, res) => {
 
     if (!isMatch) {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
+
+    // If portal role is specified, validate it matches the user's actual role
+    if (expectedRole) {
+      const actualRole = normalizeRole(user.role);
+      if (actualRole !== expectedRole) {
+        const portalLabel = actualRole === 'admin' ? 'Admin Portal' : 'Staff Portal';
+        return res.status(403).json({
+          success: false,
+          error: `This account belongs to the ${portalLabel}. Please sign in from the correct portal.`
+        });
+      }
     }
 
     sendTokenResponse(user, 200, res);

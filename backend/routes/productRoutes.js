@@ -3,9 +3,9 @@ const { getProducts, getProduct, createProduct, updateProduct, deleteProduct } =
 
 const router = express.Router();
 
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
-router.use(protect); // All product routes are protected
+router.use(protect, authorize('admin'));
 
 router.route('/')
   .get(getProducts)

@@ -18,14 +18,14 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin'],
-    default: 'user'
+    enum: ['staff', 'admin', 'user'],
+    default: 'staff'
   },
   password: {
     type: String,
     required: [true, 'Please add a password'],
     minlength: 6,
-    select: false // prevent password from being returned in queries by default
+    select: false // prevent password from being returned in queries by default 
   },
   createdAt: {
     type: Date,
@@ -34,9 +34,9 @@ const UserSchema = new mongoose.Schema({
 });
 
 // Encrypt password using bcrypt before saving
-UserSchema.pre('save', async function(next) {
+UserSchema.pre('save', async function() {
   if (!this.isModified('password')) {
-    next();
+    return;
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);

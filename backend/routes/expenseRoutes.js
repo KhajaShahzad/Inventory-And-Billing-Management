@@ -2,9 +2,9 @@ const express = require('express');
 const { getExpenses, createExpense, deleteExpense } = require('../controllers/expenseController');
 
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
-router.use(protect);
+router.use(protect, authorize('admin'));
 
 router.route('/')
   .get(getExpenses)
