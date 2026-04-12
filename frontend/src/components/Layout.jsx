@@ -93,6 +93,25 @@ const NAV_ITEMS = [
   },
 ];
 
+const SidebarLogo = () => (
+  <svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="64" height="64" rx="16" fill="url(#sidebarLogoGrad)" />
+    <rect x="12" y="28" width="40" height="24" rx="3" fill="white" fillOpacity="0.15" />
+    <rect x="14" y="30" width="36" height="20" rx="2" fill="white" fillOpacity="0.1" />
+    <rect x="26" y="38" width="12" height="12" rx="2" fill="white" fillOpacity="0.4" />
+    <rect x="15" y="33" width="8" height="6" rx="1.5" fill="white" fillOpacity="0.5" />
+    <rect x="41" y="33" width="8" height="6" rx="1.5" fill="white" fillOpacity="0.5" />
+    <path d="M9 28 L32 14 L55 28 Z" fill="white" fillOpacity="0.22" />
+    <rect x="18" y="24" width="28" height="6" rx="1.5" fill="white" fillOpacity="0.35" />
+    <defs>
+      <linearGradient id="sidebarLogoGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#3b82f6" />
+        <stop offset="100%" stopColor="#1d4ed8" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
+
 const PAGE_META = {
   '/': {
     title: 'Operational Overview',
@@ -224,10 +243,10 @@ const Layout = () => {
     <div className="app-shell">
       <aside className="app-sidebar">
         <div className="brand-block">
-          <div className="brand-mark">S</div>
+          <SidebarLogo />
           <div className="brand-copy">
-            <div className="brand-title">SmartPOS</div>
-            <div className="brand-subtitle">Retail operations platform</div>
+            <div className="brand-title">StockBill IMS</div>
+            <div className="brand-subtitle">Inventory &amp; Billing</div>
           </div>
         </div>
 
