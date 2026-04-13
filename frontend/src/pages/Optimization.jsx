@@ -1,17 +1,41 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 
+const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(2)}`;
+
 const Optimization = () => {
   const [data, setData] = useState([]);
+  const [summary, setSummary] = useState({
+    topSeller: null,
+    slowMover: null,
+    highestExpenseCategory: null,
+    restockCandidate: null,
+  });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchOptimizationData = async () => {
       try {
         const res = await api.get('/analytics/optimization');
-        setData(res.data.data);
+        setData(Array.isArray(res.data.data) ? res.data.data : []);
+        setSummary(res.data.summary || {
+          topSeller: null,
+          slowMover: null,
+          highestExpenseCategory: null,
+          restockCandidate: null,
+        });
+        setError('');
       } catch (err) {
         console.error('Error fetching optimization data', err);
+        setError(err.response?.data?.error || 'Unable to load insights right now.');
+        setData([]);
+        setSummary({
+          topSeller: null,
+          slowMover: null,
+          highestExpenseCategory: null,
+          restockCandidate: null,
+        });
       } finally {
         setLoading(false);
       }
@@ -37,6 +61,10 @@ const Optimization = () => {
 
       {loading ? (
         <div className="loading-screen" style={{ minHeight: '50vh' }}>Analyzing inventory economics...</div>
+      ) : error ? (
+        <section className="panel">
+          <div className="error-banner" style={{ marginTop: 0 }}>{error}</div>
+        </section>
       ) : data.length === 0 ? (
         <div className="empty-state" style={{ minHeight: '50vh' }}>
           <div className="empty-state-icon">AI</div>
@@ -44,6 +72,75 @@ const Optimization = () => {
         </div>
       ) : (
         <>
+          <section className="stats-grid">
+            <div className="metric-card">
+              <div className="metric-label">Top seller</div>
+              <div className="metric-value" style={{ fontSize: '1.45rem' }}>{summary.topSeller?.name || 'Not enough data'}</div>
+              <div className="metric-footnote">
+                {summary.topSeller
+                  ? `${summary.topSeller.salesFrequency} units sold with ${summary.topSeller.profitMargin.toFixed(0)}% margin.`
+                  : 'Sales history is still too small to identify a front-runner.'}
+              </div>
+            </div>
+
+            <div className="metric-card">
+              <div className="metric-label">High stock, low movement</div>
+              <div className="metric-value" style={{ fontSize: '1.45rem' }}>{summary.slowMover?.name || 'No drag detected'}</div>
+              <div className="metric-footnote">
+                {summary.slowMover
+                  ? `${summary.slowMover.currentStock} units are still on hand while only ${summary.slowMover.salesFrequency} sold recently.`
+                  : 'Nothing is clearly stuck in inventory right now.'}
+              </div>
+            </div>
+
+            <div className="metric-card">
+              <div className="metric-label">Highest expense category</div>
+              <div className="metric-value" style={{ fontSize: '1.45rem' }}>{summary.highestExpenseCategory?.category || 'No expense data'}</div>
+              <div className="metric-footnote">
+                {summary.highestExpenseCategory
+                  ? `${formatCurrency(summary.highestExpenseCategory.totalAmount)} is the largest expense bucket right now.`
+                  : 'Add expense entries to see which category is consuming the most cash.'}
+              </div>
+            </div>
+
+            <div className="metric-card">
+              <div className="metric-label">Restock first</div>
+              <div className="metric-value" style={{ fontSize: '1.45rem' }}>{summary.restockCandidate?.name || 'Stock looks stable'}</div>
+              <div className="metric-footnote">
+                {summary.restockCandidate
+                  ? `${summary.restockCandidate.currentStock} units left with ${summary.restockCandidate.salesFrequency} recent sales.`
+                  : 'No urgent restock candidate stands out yet.'}
+              </div>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-header">
+              <div>
+                <div className="panel-title">AI-style summary</div>
+                <div className="panel-copy">Plain-language guidance that helps you explain the analytics in a faculty demo without reading raw tables aloud.</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div className="helper-card">
+                {summary.topSeller
+                  ? `${summary.topSeller.name} is your strongest recent seller. It combines movement and margin better than the rest of the catalog.`
+                  : 'The system needs more billing history before it can call out a reliable top seller.'}
+              </div>
+              <div className="helper-card">
+                {summary.slowMover
+                  ? `${summary.slowMover.name} has stock sitting longer than expected. This is a good candidate for reduced reordering, bundling, or promotion.`
+                  : 'No obvious slow-moving stock is dragging inventory right now.'}
+              </div>
+              <div className="helper-card">
+                {summary.highestExpenseCategory
+                  ? `${summary.highestExpenseCategory.category} is currently the heaviest expense category, so any cost-control effort should start there.`
+                  : 'Expense insights will become more useful once you record a few operating expenses.'}
+              </div>
+            </div>
+          </section>
+
           <section className="content-grid">
             <div className="panel">
               <div className="panel-header">

@@ -1,5 +1,6 @@
 const Product = require('../models/Product');
 const Bill = require('../models/Bill');
+const Expense = require('../models/Expense');
 
 // @desc    Get AI-driven Profit Optimization and Analytics
 // @route   GET /api/analytics/optimization
@@ -8,9 +9,19 @@ exports.getOptimizationInsights = async (req, res) => {
   try {
     const products = await Product.find({ user: req.user.id }).lean();
     const bills = await Bill.find({ user: req.user.id }).lean();
+    const expenses = await Expense.find({ user: req.user.id }).lean();
 
     if (!products.length) {
-      return res.status(200).json({ success: true, topProducts: [], bottomProducts: [], allProducts: [] });
+      return res.status(200).json({
+        success: true,
+        data: [],
+        summary: {
+          topSeller: null,
+          slowMover: null,
+          highestExpenseCategory: null,
+          restockCandidate: null,
+        },
+      });
     }
 
     // 1. Calculate sales frequency map
@@ -79,9 +90,55 @@ exports.getOptimizationInsights = async (req, res) => {
       return p;
     });
 
+    const topSeller = [...analyticsData]
+      .sort((a, b) => b.salesFrequency - a.salesFrequency)[0] || null;
+
+    const slowMover = [...analyticsData]
+      .filter((product) => product.currentStock > 0)
+      .sort((a, b) => {
+        if (a.salesFrequency === b.salesFrequency) {
+          return b.currentStock - a.currentStock;
+        }
+        return a.salesFrequency - b.salesFrequency;
+      })[0] || null;
+
+    const restockCandidate = [...analyticsData]
+      .filter((product) => product.currentStock <= 10)
+      .sort((a, b) => {
+        if (b.salesFrequency === a.salesFrequency) {
+          return a.currentStock - b.currentStock;
+        }
+        return b.salesFrequency - a.salesFrequency;
+      })[0] || null;
+
+    const expenseCategoryMap = expenses.reduce((acc, expense) => {
+      const category = expense.category || 'Other';
+      if (!acc[category]) {
+        acc[category] = 0;
+      }
+      acc[category] += Number(expense.amount || 0);
+      return acc;
+    }, {});
+
+    const highestExpenseCategoryEntry = Object.entries(expenseCategoryMap)
+      .sort((a, b) => b[1] - a[1])[0];
+
+    const highestExpenseCategory = highestExpenseCategoryEntry
+      ? {
+          category: highestExpenseCategoryEntry[0],
+          totalAmount: highestExpenseCategoryEntry[1],
+        }
+      : null;
+
     res.status(200).json({
       success: true,
-      data: analyticsData
+      data: analyticsData,
+      summary: {
+        topSeller,
+        slowMover,
+        highestExpenseCategory,
+        restockCandidate,
+      },
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
