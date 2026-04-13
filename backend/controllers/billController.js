@@ -55,7 +55,29 @@ exports.createBill = async (req, res) => {
 // @access  Private
 exports.getBills = async (req, res) => {
   try {
-    const bills = await Bill.find({ user: req.user.id })
+    const query = { user: req.user.id };
+    const createdAtFilter = {};
+
+    if (req.query.from) {
+      const fromDate = new Date(req.query.from);
+      if (!Number.isNaN(fromDate.getTime())) {
+        createdAtFilter.$gte = fromDate;
+      }
+    }
+
+    if (req.query.to) {
+      const toDate = new Date(req.query.to);
+      if (!Number.isNaN(toDate.getTime())) {
+        toDate.setHours(23, 59, 59, 999);
+        createdAtFilter.$lte = toDate;
+      }
+    }
+
+    if (Object.keys(createdAtFilter).length) {
+      query.createdAt = createdAtFilter;
+    }
+
+    const bills = await Bill.find(query)
       .populate('items.product', 'name barcode')
       .sort('-createdAt');
     res.status(200).json({ success: true, count: bills.length, data: bills });

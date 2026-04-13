@@ -5,7 +5,29 @@ const Expense = require('../models/Expense');
 // @access  Private
 exports.getExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find({ user: req.user.id }).sort('-date');
+    const query = { user: req.user.id };
+    const dateFilter = {};
+
+    if (req.query.from) {
+      const fromDate = new Date(req.query.from);
+      if (!Number.isNaN(fromDate.getTime())) {
+        dateFilter.$gte = fromDate;
+      }
+    }
+
+    if (req.query.to) {
+      const toDate = new Date(req.query.to);
+      if (!Number.isNaN(toDate.getTime())) {
+        toDate.setHours(23, 59, 59, 999);
+        dateFilter.$lte = toDate;
+      }
+    }
+
+    if (Object.keys(dateFilter).length) {
+      query.date = dateFilter;
+    }
+
+    const expenses = await Expense.find(query).sort('-date');
     res.status(200).json({ success: true, count: expenses.length, data: expenses });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
