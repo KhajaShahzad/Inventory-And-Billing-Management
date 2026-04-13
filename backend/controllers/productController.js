@@ -1,5 +1,19 @@
 const Product = require('../models/Product');
 
+const generateBarcodeCandidate = () => Math.floor(100000000000 + Math.random() * 900000000000).toString();
+
+const generateUniqueBarcode = async () => {
+  let barcode = generateBarcodeCandidate();
+  let exists = await Product.exists({ barcode });
+
+  while (exists) {
+    barcode = generateBarcodeCandidate();
+    exists = await Product.exists({ barcode });
+  }
+
+  return barcode;
+};
+
 // @desc    Get all products
 // @route   GET /api/products
 // @access  Private
@@ -42,6 +56,11 @@ exports.createProduct = async (req, res) => {
   try {
     // Add user to req.body
     req.body.user = req.user.id;
+    req.body.barcode = (req.body.barcode || '').trim();
+
+    if (!req.body.barcode) {
+      req.body.barcode = await generateUniqueBarcode();
+    }
 
     const product = await Product.create(req.body);
 
@@ -62,6 +81,10 @@ exports.createProduct = async (req, res) => {
 // @access  Private
 exports.updateProduct = async (req, res) => {
   try {
+    if (typeof req.body.barcode === 'string') {
+      req.body.barcode = req.body.barcode.trim();
+    }
+
     let product = await Product.findOne({ _id: req.params.id, user: req.user.id });
 
     if (!product) {

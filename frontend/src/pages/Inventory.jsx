@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api from '../services/api';
+import JsBarcode from 'jsbarcode';
 
 const Inventory = () => {
   const [products, setProducts] = useState([]);
@@ -7,7 +8,9 @@ const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [labelProduct, setLabelProduct] = useState(null);
   const [formData, setFormData] = useState({ _id: '', name: '', barcode: '', price: '', costPrice: '', quantity: '', minStockThreshold: 10 });
+  const labelSvgRef = useRef(null);
 
   const fetchProducts = async () => {
     try {
@@ -43,6 +46,106 @@ const Inventory = () => {
     quantity: Number(formData.quantity),
     minStockThreshold: formData.minStockThreshold === '' ? 0 : Number(formData.minStockThreshold),
   });
+
+  const openLabelModal = (product) => {
+    setLabelProduct(product);
+  };
+
+  useEffect(() => {
+    if (!labelProduct || !labelSvgRef.current) {
+      return;
+    }
+
+    JsBarcode(labelSvgRef.current, labelProduct.barcode, {
+      format: 'CODE128',
+      displayValue: true,
+      fontSize: 16,
+      margin: 8,
+      height: 56,
+      lineColor: '#101721',
+      width: 1.7,
+    });
+  }, [labelProduct]);
+
+  const printLabel = () => {
+    if (!labelProduct || !labelSvgRef.current) {
+      return;
+    }
+
+    const labelMarkup = `
+      <html>
+        <head>
+          <title>${labelProduct.name} barcode label</title>
+          <style>
+            body {
+              margin: 0;
+              padding: 24px;
+              font-family: Arial, sans-serif;
+              background: #ffffff;
+              color: #101010;
+            }
+            .label {
+              width: 320px;
+              border: 1px solid #d8d8d8;
+              border-radius: 16px;
+              padding: 16px;
+            }
+            .brand {
+              font-size: 12px;
+              letter-spacing: 0.18em;
+              text-transform: uppercase;
+              color: #8a5a19;
+              font-weight: 700;
+            }
+            .name {
+              margin-top: 8px;
+              font-size: 20px;
+              font-weight: 700;
+            }
+            .price {
+              margin-top: 6px;
+              font-size: 15px;
+            }
+            .meta {
+              margin-top: 8px;
+              font-size: 12px;
+              color: #555;
+            }
+            svg {
+              display: block;
+              margin-top: 14px;
+              width: 100%;
+              height: auto;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="label">
+            <div class="brand">SmartPOS Label</div>
+            <div class="name">${labelProduct.name}</div>
+            <div class="price">Selling Price: Rs ${Number(labelProduct.price).toFixed(2)}</div>
+            <div class="meta">Barcode: ${labelProduct.barcode}</div>
+            ${labelSvgRef.current.outerHTML}
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=420,height=620');
+    if (!printWindow) {
+      alert('Popup blocked. Please allow popups to print the barcode label.');
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(labelMarkup);
+    printWindow.document.close();
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -192,6 +295,13 @@ const Inventory = () => {
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', gap: 8 }}>
+                      <button className="btn-icon" title="Print barcode label" onClick={() => openLabelModal(product)}>
+                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                          <rect x="6" y="3" width="12" height="6" />
+                          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                          <rect x="6" y="14" width="12" height="8" />
+                        </svg>
+                      </button>
                       <button className="btn-icon" title="Edit product" onClick={() => openModal(product)}>
                         <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -242,12 +352,14 @@ const Inventory = () => {
                   <input
                     type="text"
                     className="input-field"
-                    required
-                    placeholder="12-digit code"
+                    placeholder="Leave blank to auto-generate"
                     value={formData.barcode}
                     onChange={(event) => setFormData({ ...formData, barcode: event.target.value })}
                   />
                   <button type="button" className="btn btn-ghost" onClick={generateBarcode}>Generate</button>
+                </div>
+                <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--text-faint)' }}>
+                  If you do not enter a barcode, SmartPOS will generate one automatically when the product is saved.
                 </div>
               </div>
 
@@ -278,6 +390,32 @@ const Inventory = () => {
                 <button type="submit" className="btn btn-primary">{editMode ? 'Save changes' : 'Add product'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {labelProduct && (
+        <div className="modal-overlay" onClick={(event) => event.target === event.currentTarget && setLabelProduct(null)}>
+          <div className="modal-box" style={{ width: 'min(100%, 460px)' }}>
+            <div className="panel-header" style={{ marginBottom: 18 }}>
+              <div>
+                <div className="panel-title">Barcode label</div>
+                <div className="panel-copy">Print a clean shelf label for this product.</div>
+              </div>
+            </div>
+
+            <div className="barcode-label-preview">
+              <div className="barcode-label-eyebrow">SmartPOS Label</div>
+              <div className="barcode-label-name">{labelProduct.name}</div>
+              <div className="barcode-label-price">Rs {Number(labelProduct.price).toFixed(2)}</div>
+              <div className="barcode-label-code">{labelProduct.barcode}</div>
+              <svg ref={labelSvgRef} aria-label={`${labelProduct.name} barcode`} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setLabelProduct(null)}>Close</button>
+              <button type="button" className="btn btn-primary" onClick={printLabel}>Print label</button>
+            </div>
           </div>
         </div>
       )}
