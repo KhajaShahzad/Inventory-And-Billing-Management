@@ -74,11 +74,11 @@ Create `backend/.env`:
 ```env
 NODE_ENV=development
 PORT=5000
-MONGO_URI=mongodb://127.0.0.1:27017/smart_inventory
+MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret_here
 JWT_EXPIRE=30d
 PUBLIC_FRONTEND_URL=
-SCANNER_TUNNEL_TARGET=http://127.0.0.1:5173
+SCANNER_TUNNEL_TARGET=http://your_mongodb_connection_string
 ```
 
 Notes:
