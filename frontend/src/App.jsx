@@ -49,6 +49,8 @@ function App() {
           <Route path="team-access" element={<ProtectedRoute allowedRoles={['admin']}><TeamAccess /></ProtectedRoute>} />
           <Route path="reports" element={<ProtectedRoute allowedRoles={['admin']}><Reports /></ProtectedRoute>} />
         </Route>
+        {/* 404 CATCH-ALL */}
+        <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>
     </Router>

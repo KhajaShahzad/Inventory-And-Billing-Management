@@ -3,12 +3,13 @@ import api from '../services/api';
 import { saveBillOffline } from '../services/offlineSync';
 import { SocketContext } from '../context/SocketContextValue';
 import { publicAppUrl } from '../services/config';
-
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(2)}`;
 const SCANNER_CLIENT_KEY_STORAGE_KEY = 'phoneScannerClientKey';
-const PLACEHOLDER_HOST_PATTERNS = ['your-smartpos-domain.com', 'smartpos-domain.com'];
+const PLACEHOLDER_HOST_PATTERNS = ['your-ibms-domain.com', 'ibms-domain.com'];
 
-const buildReceiptFileName = (billNumber) => `smartpos-bill-${billNumber}.pdf`;
+const buildReceiptFileName = (billNumber) => `ibms-bill-${billNumber}.pdf`;
 
 const sanitizePhoneNumber = (value) => value.replace(/[^\d]/g, '');
 const normalizeUrl = (value) => `${value || ''}`.trim().replace(/\/$/, '');
@@ -50,83 +51,121 @@ const isLocalNetworkScannerUrl = (value) => {
   }
 };
 
-const escapePdfText = (value) => String(value)
-  .replace(/\\/g, '\\\\')
-  .replace(/\(/g, '\\(')
-  .replace(/\)/g, '\\)')
-  .replace(/[^\x20-\x7E]/g, ' ');
-
 const createPdfBlob = (receipt) => {
+  const doc = new jsPDF();
+  
+  // Outer Border
+  doc.setLineWidth(0.5);
+  doc.rect(10, 10, 190, 277); // x, y, width, height for A4 with 10mm margin
+  doc.rect(11, 11, 188, 275); // Double border effect
+  
+  // Header Background
+  doc.setFillColor(32, 178, 154); // Theme accent color
+  doc.rect(12, 12, 186, 35, 'F');
+  
+  // Header Text
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text('IBMS', 20, 30);
+  
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.text('TAX INVOICE', 160, 30);
+  
+  doc.setTextColor(0, 0, 0); // Reset text color
+
+  // Setup Date and formatters
   const createdAtLabel = new Date(receipt.createdAt).toLocaleString('en-IN', {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
-
-  const lines = [
-    { text: 'SMARTPOS', size: 22, x: 48, y: 805 },
-    { text: 'Retail Billing Receipt', size: 11, x: 48, y: 785 },
-    { text: '------------------------------------------------------------', size: 10, x: 48, y: 768 },
-    { text: `Bill No: ${receipt.billNumber}`, size: 11, x: 48, y: 746 },
-    { text: `Date: ${createdAtLabel}`, size: 11, x: 300, y: 746 },
-    { text: `Customer: ${receipt.customerName || 'Walk-in Customer'}`, size: 11, x: 48, y: 726 },
-    { text: `Phone: ${receipt.customerPhone || 'Not provided'}`, size: 11, x: 300, y: 726 },
-    { text: `Payment: ${receipt.paymentMethod}`, size: 11, x: 48, y: 706 },
-    { text: '------------------------------------------------------------', size: 10, x: 48, y: 688 },
-    { text: 'Item', size: 11, x: 48, y: 666 },
-    { text: 'Qty', size: 11, x: 330, y: 666 },
-    { text: 'Rate', size: 11, x: 392, y: 666 },
-    { text: 'Amount', size: 11, x: 468, y: 666 },
-    { text: '------------------------------------------------------------', size: 10, x: 48, y: 648 },
-  ];
-
-  let currentY = 628;
-  receipt.items.forEach((item) => {
-    lines.push({ text: item.name, size: 11, x: 48, y: currentY });
-    lines.push({ text: String(item.quantity), size: 11, x: 336, y: currentY });
-    lines.push({ text: formatCurrency(item.price), size: 11, x: 392, y: currentY });
-    lines.push({ text: formatCurrency(item.lineTotal), size: 11, x: 468, y: currentY });
-    currentY -= 20;
+  
+  // Bill Information Box
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Invoice Details:', 15, 60);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Invoice No: ${receipt.billNumber}`, 15, 68);
+  doc.text(`Date & Time: ${createdAtLabel}`, 15, 74);
+  doc.text(`Payment Method: ${receipt.paymentMethod}`, 15, 80);
+  
+  // Customer Information Box
+  doc.setFont('helvetica', 'bold');
+  doc.text('Bill To:', 120, 60);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Name: ${receipt.customerName || 'Walk-in Customer'}`, 120, 68);
+  doc.text(`Phone: ${receipt.customerPhone || 'Not provided'}`, 120, 74);
+  
+  // Items Table
+  const tableData = receipt.items.map((item, index) => [
+    index + 1,
+    item.name,
+    item.quantity,
+    `Rs ${Number(item.price).toFixed(2)}`,
+    `Rs ${Number(item.lineTotal).toFixed(2)}`
+  ]);
+  
+  autoTable(doc, {
+    startY: 90,
+    head: [['#', 'Item Description', 'Qty', 'Unit Price', 'Total']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [32, 178, 154],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 15 },
+      1: { halign: 'left', cellWidth: 80 },
+      2: { halign: 'center', cellWidth: 20 },
+      3: { halign: 'right', cellWidth: 35 },
+      4: { halign: 'right', cellWidth: 35 }
+    },
+    styles: {
+      fontSize: 10,
+      cellPadding: 5,
+    },
+    alternateRowStyles: {
+      fillColor: [245, 250, 249]
+    },
+    margin: { left: 15, right: 15 }
   });
+  
+  const finalY = doc.lastAutoTable.finalY || 90;
+  
+  // Summary Section
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Summary', 140, finalY + 15);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Total Items:`, 140, finalY + 25);
+  doc.text(`${receipt.itemCount}`, 190, finalY + 25, { align: 'right' });
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('Total Amount:', 130, finalY + 35);
+  doc.text(`Rs ${Number(receipt.totalAmount).toFixed(2)}`, 190, finalY + 35, { align: 'right' });
+  
+  // Divider
+  doc.setDrawColor(200, 200, 200);
+  doc.line(15, finalY + 45, 195, finalY + 45);
+  
+  // Footer Notes
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(100, 100, 100);
+  doc.text('Thank you for shopping with IBMS!', 105, finalY + 55, { align: 'center' });
+  doc.text('Please retain this invoice for your records.', 105, finalY + 61, { align: 'center' });
 
-  lines.push(
-    { text: '------------------------------------------------------------', size: 10, x: 48, y: currentY - 2 },
-    { text: `Items: ${receipt.itemCount}`, size: 11, x: 48, y: currentY - 24 },
-    { text: `Total: ${formatCurrency(receipt.totalAmount)}`, size: 14, x: 390, y: currentY - 24 },
-    { text: 'Thank you for shopping with SmartPOS.', size: 11, x: 48, y: currentY - 56 },
-    { text: 'Please visit again.', size: 11, x: 48, y: currentY - 74 },
-  );
-
-  const content = [];
-  lines.forEach((line) => {
-    content.push(`BT /F1 ${line.size} Tf 1 0 0 1 ${line.x} ${line.y} Tm (${escapePdfText(line.text)}) Tj ET`);
-  });
-
-  const stream = content.join('\n');
-  const objects = [
-    '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
-    '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
-    '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj',
-    `4 0 obj << /Length ${stream.length} >> stream\n${stream}\nendstream endobj`,
-    '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj',
-  ];
-
-  let pdf = '%PDF-1.4\n';
-  const offsets = [0];
-
-  objects.forEach((object) => {
-    offsets.push(pdf.length);
-    pdf += `${object}\n`;
-  });
-
-  const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += '0000000000 65535 f \n';
-  offsets.slice(1).forEach((offset) => {
-    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
-  });
-  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-  return new Blob([pdf], { type: 'application/pdf' });
+  // Generate output Blob
+  const pdfOutput = doc.output('arraybuffer');
+  return new Blob([pdfOutput], { type: 'application/pdf' });
 };
 
 const Billing = () => {
@@ -223,7 +262,7 @@ const Billing = () => {
     const cleanedPhone = sanitizePhoneNumber(receiptPhoneNumber);
     const message = [
       `Hello${lastReceipt.customerName && lastReceipt.customerName !== 'Walk-in Customer' ? ` ${lastReceipt.customerName}` : ''},`,
-      `Your SmartPOS bill ${lastReceipt.billNumber} for ${formatCurrency(lastReceipt.totalAmount)} is ready.`,
+      `Your IBMS bill ${lastReceipt.billNumber} for ${formatCurrency(lastReceipt.totalAmount)} is ready.`,
     ].join(' ');
 
     try {
@@ -788,7 +827,7 @@ const Billing = () => {
                 onChange={(event) => setReceiptPhoneNumber(event.target.value)}
               />
               <div className="panel-copy" style={{ marginTop: 8 }}>
-                If your browser supports file sharing, SmartPOS will hand the PDF to the share sheet. Otherwise it will download the PDF and open WhatsApp Web so you can attach it quickly.
+                If your browser supports file sharing, IBMS will hand the PDF to the share sheet. Otherwise it will download the PDF and open WhatsApp Web so you can attach it quickly.
               </div>
             </div>
 
